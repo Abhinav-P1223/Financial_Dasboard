@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bank Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .header {
+            background: linear-gradient(135deg, #007bff, #00c6ff);
+            color: white;
+            padding: 30px 0;
+            margin-bottom: 30px;
+            border-radius: 0 0 10px 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .form-section, .table-section, .chart-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        h2 {
+            color: #343a40;
+            margin-bottom: 20px;
+        }
+        img {
+            width: 100%;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        table th, table td {
+            vertical-align: middle;
+        }
+        .table thead {
+            background-color: #343a40;
+            color: white;
+        }
+        .page-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .form-control, .form-select {
+            box-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1> Bank Transaction Dashboard</h1>
+        <p class="mb-0"></p>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="form-section">
+        <form method="POST" class="row g-3">
+            <div class="col-md-3">
+                <input type="text" name="username" value="{{ filter_name }}" class="form-control" placeholder="Username">
+            </div>
+            <div class="col-md-2">
+                <select name="tr_type" class="form-select">
+                    <option value="">All Types</option>
+                    <option value="Db" {% if tr_type == 'Db' %}selected{% endif %}>Debit</option>
+                    <option value="Cr" {% if tr_type == 'Cr' %}selected{% endif %}>Credit</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="start_date" value="{{ start_date }}" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <input type="date" name="end_date" value="{{ end_date }}" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <select name="window" class="form-select">
+                    <option value="3" {% if window == 3 %}selected{% endif %}>3-Day Avg</option>
+                    <option value="5" {% if window == 5 %}selected{% endif %}>5-Day Avg</option>
+                    <option value="7" {% if window == 7 %}selected{% endif %}>7-Day Avg</option>
+                    <option value="10" {% if window == 10 %}selected{% endif %}>10-Day Avg</option>
+                    <option value="14" {% if window == 14 %}selected{% endif %}>14-Day Avg</option>
+                    <option value="30" {% if window == 30 %}selected{% endif %}>30-Day Avg</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-grid">
+                <button type="submit" class="btn btn-primary">Apply</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Transactions Table -->
+    {% if transactions %}
+    <div class="table-section">
+        <div class="page-controls mb-3">
+            <div>
+                <label for="recordsPerPage" class="form-label">Records per page:</label>
+                <select id="recordsPerPage" class="form-select d-inline-block w-auto">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+            <div>
+                <button class="btn btn-outline-secondary btn-sm me-1" onclick="prevPage()">Prev</button>
+                <span id="pageInfo" class="me-1"></span>
+                <button class="btn btn-outline-secondary btn-sm" onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table id="transactionsTable" class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Amount (₹)</th>
+                        <th>Balance (₹)</th>
+                        <th>User</th>
+                    </tr>
+                </thead>
+                <tbody id="tableData">
+                    {% for txn in transactions %}
+                    <tr>
+                        <td>{{ txn.txn_date.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <span class="badge {% if txn.DrCr == 'Db' %}bg-danger{% else %}bg-success{% endif %}">
+                                {{ 'Debit' if txn.DrCr == 'Db' else 'Credit' }}
+                            </span>
+                        </td>
+                        <td>{{ txn.amount }}</td>
+                        <td>{{ txn.balance }}</td>
+                        <td>{{ txn.user_name }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center">
+        <p class="text-muted">No transactions found for the selected filters.</p>
+    </div>
+    {% endif %}
+
+    <!-- Charts Section -->
+    <div class="chart-section">
+        {% if line_chart %}
+        <h2>📈 Balance Over Time</h2>
+        <img src="{{ url_for('static', filename='charts/' + line_chart) }}" alt="Line Chart">
+        {% endif %}
+
+        {% if moving_avg_chart %}
+        <h2>📊 {{ window }}-Day Moving Average</h2>
+        <img src="{{ url_for('static', filename='charts/' + moving_avg_chart) }}" alt="Moving Avg Chart">
+        {% endif %}
+
+        {% if pie_chart %}
+        <h2>🧾 Transaction Type Distribution</h2>
+        <img src="{{ url_for('static', filename='charts/' + pie_chart) }}" alt="Pie Chart">
+        {% endif %}
+    </div>
+</div>
+
+<!-- Pagination Script -->
+<script>
+    let currentPage = 1;
+    let recordsPerPage = 10;
+    const tableData = document.getElementById('tableData');
+    const rows = tableData ? tableData.getElementsByTagName('tr') : [];
+    const pageInfo = document.getElementById('pageInfo');
+    const recordsSelect = document.getElementById('recordsPerPage');
+
+    function updatePagination() {
+        recordsPerPage = parseInt(recordsSelect.value);
+        const totalPages = Math.ceil(rows.length / recordsPerPage);
+
+        for (let i = 0; i < rows.length; i++) {
+            rows[i].style.display = (i >= (currentPage - 1) * recordsPerPage && i < currentPage * recordsPerPage) ? '' : 'none';
+        }
+
+        pageInfo.innerText = `Page ${currentPage} of ${totalPages}`;
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            updatePagination();
+        }
+    }
+
+    function nextPage() {
+        const totalPages = Math.ceil(rows.length / recordsPerPage);
+        if (currentPage < totalPages) {
+            currentPage++;
+            updatePagination();
+        }
+    }
+
+    recordsSelect.addEventListener('change', () => {
+        currentPage = 1;
+        updatePagination();
+    });
+
+    window.onload = updatePagination;
+</script>
+
+</body>
+</html>
