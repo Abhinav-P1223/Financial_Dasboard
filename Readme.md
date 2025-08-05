@@ -101,12 +101,19 @@ A web-based banking dashboard built using **Flask**, **MySQL**, and **Matplotlib
 ## 📁 Project Structure
 
 ├── app.py
+
 ├── templates/
+
 │ └── dashboard.html
+
 ├── static/
+
 │ └── charts/
+
 │ ├── moving_avg.png
+
 │ └── pie_chart.png
+
 └── README.md
 
 
@@ -126,3 +133,4 @@ A web-based banking dashboard built using **Flask**, **MySQL**, and **Matplotlib
 ## 📃 License
 
 This project is for educational purposes. Modify and use freely.
+
