@@ -135,3 +135,4 @@ A web-based banking dashboard built using **Flask**, **MySQL**, and **Matplotlib
 This project is for educational purposes. Modify and use freely.
 
 
+
