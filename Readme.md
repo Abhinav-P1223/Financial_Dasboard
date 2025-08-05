@@ -1,4 +1,4 @@
-# 💰 Bank Transaction Dashboard
+# Bank Transaction Dashboard
 
 A web-based banking dashboard built using **Flask**, **MySQL**, and **Matplotlib** that provides insights into user transactions with interactive filters and visualizations like moving average graphs and pie charts.
 
@@ -133,4 +133,5 @@ A web-based banking dashboard built using **Flask**, **MySQL**, and **Matplotlib
 ## 📃 License
 
 This project is for educational purposes. Modify and use freely.
+
 
