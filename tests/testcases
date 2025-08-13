@@ -1,0 +1,105 @@
+import pytest
+from unittest.mock import patch, MagicMock
+from app import app, get_db_connection, generate_charts
+import os
+from datetime import datetime
+
+@pytest.fixture
+def client():
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
+
+# Mock database connection
+@pytest.fixture
+def mock_db_connection():
+    with patch('app.get_db_connection') as mock_conn:
+        mock_cursor = MagicMock()
+        mock_conn.return_value.cursor.return_value = mock_cursor
+        yield mock_cursor
+
+# Test: Happy path for the dashboard route
+def test_dashboard_happy_path(client, mock_db_connection):
+    mock_db_connection.fetchall.return_value = [
+        {'txn_date': '2023-08-01', 'DrCr': 'Db', 'amount': 1000, 'balance': 5000, 'user_name': 'testuser'}
+    ]
+    response = client.post('/', data={
+        'username': 'testuser',
+        'tr_type': 'Db',
+        'start_date': '2023-08-01',
+        'end_date': '2023-08-31',
+        'window': '7'
+    })
+    assert response.status_code == 200
+    assert b"testuser" in response.data
+
+# Test: Edge case for empty transactions
+def test_generate_charts_empty_transactions():
+    line_chart, moving_avg_chart, pie_chart = generate_charts([], 7)
+    assert line_chart is None
+    assert moving_avg_chart is None
+    assert pie_chart is None
+
+# Test: Error handling for invalid window input
+def test_dashboard_invalid_window(client, mock_db_connection):
+    mock_db_connection.fetchall.return_value = []
+    response = client.post('/', data={'window': 'invalid'})
+    assert response.status_code == 200
+    assert b"window" in response.data  # Ensure the page renders without crashing
+
+# Test: File cleanup during chart generation
+@patch('os.listdir', return_value=['line_chart_old.png', 'moving_avg_old.png'])
+@patch('os.remove')
+def test_generate_charts_file_cleanup(mock_remove, mock_listdir):
+    transactions = [
+        {'txn_date': '2023-08-01', 'DrCr': 'Db', 'amount': 1000, 'balance': 5000},
+        {'txn_date': '2023-08-02', 'DrCr': 'Cr', 'amount': 500, 'balance': 5500}
+    ]
+    generate_charts(transactions, 7)
+    mock_remove.assert_called()  # Ensure old files are removed
+
+# Test: SQL query parameters for filtering
+def test_dashboard_sql_query_parameters(client, mock_db_connection):
+    mock_db_connection.fetchall.return_value = []
+    client.post('/', data={
+        'username': 'testuser',
+        'tr_type': 'Db',
+        'start_date': '2023-08-01',
+        'end_date': '2023-08-31'
+    })
+    mock_db_connection.execute.assert_called_once()
+    query, params = mock_db_connection.execute.call_args[0]
+    assert "LOWER(user_name) = LOWER(%s)" in query
+    assert params == ['testuser', 'Db', '2023-08-01', '2023-08-31']
+
+# Test: Error handling for database connection failure
+@patch('app.get_db_connection', side_effect=Exception("Database connection error"))
+def test_dashboard_db_connection_error(mock_db_conn, client):
+    response = client.post('/')
+    assert response.status_code == 500  # Internal server error
+
+# Test: Chart generation with valid transactions
+@patch('matplotlib.pyplot.savefig')
+def test_generate_charts_happy_path(mock_savefig):
+    transactions = [
+        {'txn_date': '2023-08-01', 'DrCr': 'Db', 'amount': 1000, 'balance': 5000},
+        {'txn_date': '2023-08-02', 'DrCr': 'Cr', 'amount': 500, 'balance': 5500}
+    ]
+    line_chart, moving_avg_chart, pie_chart = generate_charts(transactions, 7)
+    assert line_chart is not None
+    assert moving_avg_chart is not None
+    assert pie_chart is not None
+    mock_savefig.assert_called()  # Ensure charts are saved
+
+# Test: Edge case for invalid date format
+def test_dashboard_invalid_date_format(client):
+    response = client.post('/', data={'start_date': 'invalid-date'})
+    assert response.status_code == 400  # Bad request
+
+# Test: Ensure charts route renders correctly
+def test_charts_route(client):
+    response = client.get('/charts?line_chart=test_line.png&moving_avg_chart=test_avg.png&pie_chart=test_pie.png')
+    assert response.status_code == 200
+    assert b"test_line.png" in response.data
+    assert b"test_avg.png" in response.data
+    assert b"test_pie.png" in response.data
